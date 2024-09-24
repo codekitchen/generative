@@ -41,6 +41,29 @@
       d.fillRect(x, y, r, r)
     }
 
+    // planets
+    for (let i=R(8); i>0; i--) {
+      const x = (R(W) - R(0.8)*t) % W,
+            y = R(H),
+            r = R(25),
+            c = `hsl(${R(360)} ${R()**3*100} ${R(1, 0.5)*100})`,
+            ring = `hsl(${R(360)} ${R()**3*100} ${R(1, 0.5)*100})`,
+            tilt = R(r)-(r/2)
+      d.fillStyle = c
+      d.beginPath()
+      d.arc(x, y, r, 0, 2*Math.PI)
+      d.fill()
+      d.beginPath()
+      if (R() < 0.4) {
+        d.strokeStyle = ring
+        d.lineWidth = R(3)
+        d.moveTo(x-r-5, y+tilt)
+        d.lineTo(x+r+5, y-tilt)
+        d.stroke()
+        d.beginPath()
+      }
+    }
+
     // mountains
     let mhue = R(360)
     for (let m=1; m++<8;) {
