@@ -1,0 +1,72 @@
+<body style="margin:0;overflow:hidden;position: relative;">
+<canvas id=c style="position:absolute;height:100%;"></canvas>
+<script>
+  c.width = W = 1920
+  c.height = H = 1080
+  d = c.getContext('2d')
+
+  function rng(seed) {
+    let m = 2 ** 35 - 31, a = 185852, s = (seed ** 32) % m
+    return max => (max || 1) * (s = s * a % m) / m
+  }
+  R = (max=1, min=0) => min + (max-min)*rand()
+
+  function reseed() {
+    SEED = Math.random()//1234
+    t = 0
+  }
+  reseed()
+
+  function draw() {
+    requestAnimationFrame(draw)
+    rand = rng(SEED)
+    t += 1/60
+    c.width |=0
+
+    // sky color
+    let skyHue = R(360)
+    let skyHue2 = skyHue + R(108, 252)
+    let s = d.fillStyle = d.createLinearGradient(0, 0, 0, 900)
+    s.addColorStop(0, `hsl(${skyHue} ${R(100)} ${R(50)})`)
+    s.addColorStop(1, `hsl(${skyHue2} ${R(100)} ${R(80, 20)})`)
+    d.fillRect(0, 0, c.width, c.height)
+
+    // stars
+    for (let i=4e3; i--;) {
+      const x = (R(W) + R(9)*t) % W,
+            y = R(H),
+            r = R(2),
+            c = `hsl(${R(360)} ${R()**3*100} ${R(1, 0.5)*100})`
+      d.fillStyle = c
+      d.fillRect(x, y, r, r)
+    }
+
+    // mountains
+    let mhue = R(360)
+    for (let m=1; m++<8;) {
+      mhue += R(-60, 60)
+      // fade mountain hue into sky hue in the distant mountains
+      let mc = mhue + (skyHue-mhue)*(8-m) / 20
+      let y = m*m*9 + 450
+      let s = d.fillStyle = d.createLinearGradient(0, y-100, 0, y+400)
+      s.addColorStop(0, `hsl(${mc} 60 75)`)
+      // s.addColorStop(0, `hsl(70 60 75)`)
+      s.addColorStop(1, `hsl(0 5 5)`)
+      let p = m**2 + t
+      for (let s=3e3; s--;) {
+        const q = s + m*s + t*m**3 + p++
+        d.lineTo(s*m, y + 59*Math.cos(q/87)/m + 99*Math.cos(q/180)/m)
+      }
+      d.lineTo(0, H)
+      d.lineTo(W, H)
+      // d.stroke()
+      d.fill()
+      d.beginPath()
+    }
+  }
+  draw()
+
+</script>
+<div style="position:absolute;right:25px;top:25px;border:1px solid #ccc;background: #eee;">
+  <input type="button" value="♽" onclick="reseed()" />
+</div>

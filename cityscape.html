@@ -1,0 +1,20 @@
+<body style="margin:0">
+<canvas id=c>
+<script>
+  R=(r=0,g=0,b=0)=>`rgb(${r},${g},${b})`
+  S=Math.sin
+  c.width=1920
+  c.height=1080
+  x=c.getContext('2d')
+  t=0
+  function draw() {
+    for(z=i=2000;i--;){
+      X=i%9;
+      Y=i/9|0;
+      x.fillStyle=R(r=t?X*Y%2*255*S(i*i*t):i/4,r-49,t?r-i:79)
+      x.fillRect(X*9+S(t*z)*z|0,Y*9+t*300,t?9:z,9)
+    }
+    t+=1/60
+  }
+  setInterval(draw, 1/60)
+</script>

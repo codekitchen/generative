@@ -1,0 +1,162 @@
+<body style="margin:0;overflow:hidden;touch-action: none;">
+<canvas id=c style="position:absolute;height:100%;" onclick="void(0)"></canvas>
+<script>
+  // https://zalo.github.io/blog/constraints/
+  function resize() {
+    c.width = W = document.body.clientWidth
+    c.height = H = document.body.clientHeight
+  }
+  resize()
+  addEventListener("resize", resize)
+
+  d = c.getContext('2d')
+  PI=Math.PI
+  TWO_PI=PI*2
+
+  FIELD_R=240
+  BALL_R=10
+  MOUSE_R=50
+  COL_ITER=5
+  N_BALLS = 250
+
+  R = (max = 1, min = 0) => min + (max - min) * Math.random()
+  class V {
+    constructor(x=0,y=0){
+      this.x=x; this.y=y
+    }
+    static fromAngle(angle, r = 1) {
+      return new V(+r * Math.cos(angle), +r * Math.sin(angle))
+    }
+
+    add(v2){ return new V(v2.x+this.x, v2.y+this.y) }
+    sub(v2){ return new V(this.x-v2.x, this.y-v2.y) }
+    mul(n){ return new V(this.x*n, this.y*n) }
+    div(n){ return new V(this.x/n, this.y/n) }
+    dot(v2){ return this.x*v2.x + this.y*v2.y }
+    len(){ return Math.sqrt(this.x**2 + this.y**2) }
+    setMag(n) {
+      if (n === 0 || this.len() === 0) return new V()
+      let s=n/this.len()
+      return new V(this.x*s, this.y*s)
+    }
+    normalize(){
+      const l=this.len()
+      if(l===0) return this
+      return new V(this.x/l, this.y/l)
+    }
+    heading() { return new Angle(Math.atan2(this.y, this.x)) }
+    angle(v2) { return new Angle(Math.atan2(v2.y-this.y, v2.x-this.x)) }
+    p() { return [this.x,this.y] }
+  }
+
+  // angle normalized between -PI and PI
+  class Angle {
+    constructor(radians=0) { this.radians = Angle.normalize(radians) }
+    static normalize(r) {
+      while (r < -PI) r += TWO_PI
+      while (r > PI) r -= TWO_PI
+      return r
+    }
+    valueOf() { return this.radians }
+    degrees() { return this.radians * 180 / PI }
+    add(a2) { return new Angle(this.radians + a2) }
+    sub(a2) { return new Angle(this.radians - a2) }
+    clamp(min,max) { return new Angle(clamp(this.radians, min, max)) }
+  }
+
+  function constrainDistance(pt, anchor, dist) {
+    return pt.sub(anchor).setMag(dist).add(anchor)
+  }
+
+  function clamp(val, min, max) {
+    return val < min ? min : val > max ? max : val
+  }
+
+  function *range(a, b, step=1) { for(a;a!=b;a+=step) yield a }
+
+  let mouse = new V(-200, -200)
+  addEventListener("mousemove", ev => {mouse = new V(ev.x, ev.y)})
+  function touch(ev) {
+    ev.preventDefault()
+    mouse = new V(ev.targetTouches[0].pageX, ev.targetTouches[0].pageY)
+  }
+  addEventListener("touchstart", touch, {passive:false})
+  addEventListener("touchmove", touch, {passive:false})
+
+  let balls = [...range(0,N_BALLS)].map(() => new V(R(50,-50), R(50,-50)))
+  let prevBalls = [...balls]
+
+  function draw() {
+    requestAnimationFrame(draw)
+    d.clearRect(0, 0, W, H)
+
+    d.fillStyle = `#2C333C`
+    d.fillRect(0, 0, W, H)
+
+    d.save()
+    d.beginPath()
+    d.translate(W / 2, H / 2)
+    d.strokeStyle = 'white'
+    d.lineWidth = 3
+    d.arc(0, 0, FIELD_R+3/2, 0, TWO_PI)
+    d.stroke()
+
+    // verlet integration
+    for (let i=0; i<balls.length; i++) {
+      let b = balls[i]
+      let p = prevBalls[i]
+      balls[i] = b.add(b.sub(p)).add(new V(0, .1))
+      prevBalls[i] = b
+    }
+
+    // collisions
+    let mouse2 = mouse.sub(new V(W / 2, H / 2))
+    for (let i = 0; i < balls.length; i++) {
+      let dist = mouse2.sub(balls[i])
+      if (dist.len() < MOUSE_R+BALL_R) {
+        dist = dist.setMag(MOUSE_R+BALL_R-dist.len())
+        balls[i] = balls[i].sub(dist)
+      }
+    }
+    for (let i=COL_ITER; i--;) {
+      for (let a=0; a<balls.length; a++) {
+        for (let b=a+1; b<balls.length; b++) {
+          let dist = balls[b].sub(balls[a])
+          if (dist.len() < BALL_R*2) {
+            dist = dist.setMag(BALL_R-dist.len()/2)
+            balls[a] = balls[a].sub(dist)
+            balls[b] = balls[b].add(dist)
+          }
+        }
+      }
+    }
+
+    // constrain to field
+    for (let i=0; i<balls.length; i++) {
+      let b = balls[i]
+      if (b.len() > FIELD_R-BALL_R) {
+        balls[i] = b.setMag(FIELD_R-BALL_R)
+      }
+    }
+
+    // draw mouse
+    d.fillStyle = `hsl(205, 50%, 50%)`
+    d.strokeStyle = 'white'
+    d.lineWidth = 2
+    d.beginPath()
+    d.arc(mouse2.x, mouse2.y, MOUSE_R, 0, TWO_PI)
+    d.fill()
+    d.stroke()
+
+    // draw balls
+    for (let i = 0; i < balls.length; i++) {
+      let b = balls[i]
+      d.fillStyle = `hsl(${(i*30)%360}, 100%, 50%)`
+      d.beginPath()
+      d.arc(b.x, b.y, BALL_R, 0, TWO_PI)
+      d.fill()
+    }
+    d.restore()
+  }
+  draw()
+</script>

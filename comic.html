@@ -1,0 +1,111 @@
+<body style="margin:0;position:relative;">
+<canvas id=c></canvas>
+<script>
+function rng(seed) {
+  let m=2**35-31,a=185852,s=(seed**32)%m
+  return max=>(max||1)*(s=s*a%m)/m
+}
+// normal distribution
+function randn_bm(rand) {
+  let num = -1;
+  while (num > 1 || num < 0) {
+    let u = 0, v = 0;
+    while (u === 0) u = rand(); //Converting [0,1) to (0,1)
+    while (v === 0) v = rand();
+    num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    num = num / 10.0 + 0.5; // Translate to 0 -> 1
+  }
+  return num
+}
+
+function draw() {
+  SEED = Math.random()//1234
+  rand = rng(SEED)
+  for(i=100;--i;)rand() // my rand is bad and I should feel bad
+  d = c.getContext('2d')
+  R = (r = 0, g = 0, b = 0) => `rgb(${r},${g},${b})`
+  c.width = W = 650
+  c.height = H = 650
+
+  STROKE = 3
+  GUTTER = 6
+  HALFG = GUTTER/2
+  MARGIN = 25
+  MINW = MINH = 60
+  RECURSE = 3
+
+  d.lineWidth = STROKE
+
+  function divide(x0,y0,w,h) {
+    let x = randn_bm(rand)*w+x0|0
+    let y = randn_bm(rand)*h+y0|0
+    return [x,y]
+  }
+
+  let boxes = [[0,0,W,H]]
+
+  function panelize(x, y, w, h, boxes) {
+    let [x1,y1] = divide(x, y, w, h)
+    let newboxes = []
+    let style = rand()
+    let w1 = x1-x, w2 = w-w1,
+        h1 = y1-y, h2 = h-h1
+    if (style < 0.60) {
+      // four-way
+      newboxes.push(
+        [x,y,w1,h1],
+        [x1,y,w2,h1],
+        [x,y1,w1,h2],
+        [x1,y1,w2,h2],
+      )
+    } else if (style < 0.80) {
+      // only vert
+      newboxes.push(
+        [x,y,w,h1],
+        [x,y1,w,h2],
+      )
+    } else if (style < 0.95) {
+      // only horiz
+      newboxes.push(
+        [x,y,w1,h],
+        [x1,y,w2,h],
+      )
+    } else {
+      // no subdivide
+      return 0
+    }
+
+    if (!newboxes.every(box=>box[2]>=MINW && box[3]>=MINH)) {
+      return 0
+    }
+    boxes.push(...newboxes)
+    return newboxes.length
+  }
+  function subDivide(boxes, idx) {
+    const added = panelize(...boxes[idx], boxes)
+    if (added) boxes.splice(idx, 1)
+  }
+  for (i=RECURSE;i--;) {
+    let sl = boxes.length
+    for(j=sl-1;j>=0;j--) {
+      subDivide(boxes,j)
+    }
+  }
+
+  function drawBox([x,y,w,h]) {
+    x+=HALFG
+    y+=HALFG
+    w-=GUTTER
+    h-=GUTTER
+    d.strokeRect(x,y,w,h)
+  }
+
+  for (const box of boxes) {
+    drawBox(box)
+  }
+}
+draw()
+</script>
+<div style="position:absolute;right:25px;top:25px;border:1px solid #ccc;background: #eee;">
+  <input type="button" value="♽" onclick="draw()" />
+</div>

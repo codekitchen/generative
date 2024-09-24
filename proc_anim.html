@@ -1,0 +1,284 @@
+<body style="margin:0;overflow:hidden;">
+<canvas id=c style="position:absolute;height:100%;"></canvas>
+<script>
+  // procedural animation from https://www.youtube.com/watch?v=qlfh_rv6khY translated to javascript
+  c.width = W = c.clientWidth
+  c.height = H = c.clientHeight
+  d = c.getContext('2d')
+  PI=Math.PI
+  TWO_PI=PI*2
+
+  class V {
+    constructor(x=0,y=0){
+      this.x=x; this.y=y
+    }
+    static fromAngle(angle, r = 1) {
+      return new V(+r * Math.cos(angle), +r * Math.sin(angle))
+    }
+
+    add(v2){ return new V(v2.x+this.x, v2.y+this.y) }
+    sub(v2){ return new V(this.x-v2.x, this.y-v2.y) }
+    mul(n){ return new V(this.x*n, this.y*n) }
+    div(n){ return new V(this.x/n, this.y/n) }
+    dot(v2){ return this.x*v2.x + this.y*v2.y }
+    len(){ return Math.sqrt(this.x**2 + this.y**2) }
+    setMag(n) {
+      if (n === 0 || this.len() === 0) return new V()
+      let s=n/this.len()
+      return new V(this.x*s, this.y*s)
+    }
+    normalize(){
+      const l=this.len()
+      if(l===0) return this
+      return new V(this.x/l, this.y/l)
+    }
+    heading() { return new Angle(Math.atan2(this.y, this.x)) }
+    angle(v2) { return new Angle(Math.atan2(v2.y-this.y, v2.x-this.x)) }
+    p() { return [this.x,this.y] }
+  }
+
+  // angle normalized between -PI and PI (modulo fp error)
+  class Angle {
+    constructor(radians=0) { this.radians = Angle.normalize(radians) }
+    static normalize(r) {
+      while (r < -PI) r += TWO_PI
+      while (r > PI) r -= TWO_PI
+      return r
+    }
+    valueOf() { return this.radians }
+    degrees() { return this.radians * 180 }
+    add(a2) { return new Angle(this.radians + a2) }
+    sub(a2) { return new Angle(this.radians - a2) }
+    clamp(min,max) { return new Angle(clamp(this.radians, min, max)) }
+  }
+
+  class Segment {
+    constructor(pt){
+      this.pt = pt || new V
+      this.facing = new Angle
+    }
+    follow(seg,d) { this.pt = constrainDistance(this.pt, seg.pt, d) }
+    face(seg) {
+      let pt = seg.pt.sub(this.pt)
+      this.facing = pt.heading()
+    }
+    f(a,r) { return this.pt.add(V.fromAngle(this.facing + a, r||this.radius)) }
+    f1(r) { return this.f(PI / 2,r) }
+    f2(r) { return this.f(-PI / 2,r) }
+  }
+
+  class Chain {
+    constructor(origin, count, linkDistance=35) {
+      this.segs = [new Segment(origin)]
+      for(let i=1;i<count;i++) {
+        this.segs.push(new Segment(this.segs[i-1].pt.add(new V(-linkDistance, 0))))
+      }
+      this.linkDistance = linkDistance
+      this.angleConstraint = PI/8
+    }
+    goto(pt) {
+      this.segs[0].face({ pt })
+      this.segs[0].pt = pt
+    }
+    moveToward(pt) {
+      pt = pt.sub(this.segs[0].pt)
+      if (pt.len() < 6) return
+      let heading = pt.heading()
+      let facing = this.segs[0].facing
+      let angleDiff = heading.sub(facing)
+      // console.log(`angleDiff ${angleDiff.toFixed(3)} heading ${heading.toFixed(3)} facing ${facing.toFixed(3)}`)
+      // angleDiff = clamp(angleDiff, -this.angleConstraint, this.angleConstraint)
+      pt = V.fromAngle(this.segs[0].facing.add(angleDiff), 6)
+      this.goto(this.segs[0].pt.add(pt))
+    }
+    update() {
+      this.frontToBack()
+    }
+    frontToBack() {
+      for (let i = 1; i < this.segs.length; i++) {
+        let seg = this.segs[i], pseg = this.segs[i-1]
+        let curFacing = pseg.pt.sub(seg.pt).heading()
+        let prevAngle = pseg.facing
+        let angleDiff = prevAngle.sub(curFacing)
+        if (Math.abs(angleDiff) <= this.angleConstraint)
+          seg.facing = curFacing
+        else if (angleDiff > this.angleConstraint)
+          seg.facing = prevAngle.sub(this.angleConstraint)
+        else
+          seg.facing = prevAngle.add(this.angleConstraint)
+
+        seg.pt = pseg.pt.sub(V.fromAngle(seg.facing, this.linkDistance))
+      }
+    }
+    draw(d) {
+      d.strokeStyle = 'rgba(255, 255, 255, 0.6)'
+      for (let seg of this.segs) {
+        d.beginPath()
+        d.arc(seg.pt.x, seg.pt.y, this.linkDistance/2, 0, TWO_PI)
+        d.moveTo(seg.pt.x, seg.pt.y)
+        d.arc(seg.pt.x, seg.pt.y, this.linkDistance/2, seg.facing-.2, seg.facing+.2)
+        d.closePath()
+        d.stroke()
+      }
+    }
+  }
+
+  class Snake {
+    static drawSizes = [40, 44, ...range(30, 1, -1)]
+    constructor(mouse) {
+      this.chain = new Chain(mouse, Snake.drawSizes.length)
+    }
+    update(mouse) {
+      this.chain.moveToward(mouse)
+      this.chain.update()
+    }
+    draw(d) {
+      d.fillStyle = '#AB4036'
+      d.strokeStyle = 'white'
+      d.lineWidth = 3
+
+      // body
+      let pts = []
+      for (let i = 0; i < this.chain.segs.length; i++) pts.push(this.chain.segs[i].f1(Snake.drawSizes[i]))
+      for (let i = this.chain.segs.length - 1; i >= 0; i--) pts.push(this.chain.segs[i].f2(Snake.drawSizes[i]))
+      pts.push(this.chain.segs[0].f(-PI / 6, 40))
+      pts.push(this.chain.segs[0].f(2 * PI, 40))
+      pts.push(this.chain.segs[0].f(PI / 6, 40))
+      drawCurve(d, pts)
+      d.fill()
+      d.stroke()
+
+      // eyes
+      d.fillStyle = 'rgba(255,255,255,.6)'
+      d.beginPath()
+      d.arc(...this.chain.segs[0].f(PI / 3, 25).p(), 6, 0, 2 * PI)
+      d.arc(...this.chain.segs[0].f(-PI / 3, 25).p(), 6, 0, 2 * PI)
+      d.fill()
+    }
+  }
+
+  class Fish {
+    static drawSizes = [68, 81, 84, 83, 77, 64, 51, 38, 32, 19]
+    static bodyColor = `rgb(58,124,165)`
+    static finColor = `rgb(129, 195, 215)`
+    constructor(mouse) {
+      this.chain = new Chain(mouse, 12, 64)
+    }
+    update(mouse) {
+      this.chain.moveToward(mouse)
+      this.chain.update()
+    }
+    draw(d) {
+      d.strokeStyle = 'white'
+      d.lineWidth = 3
+
+      d.fillStyle = this.constructor.finColor
+      // pectoral fins
+      d.save()
+      d.beginPath()
+      d.translate(...this.chain.segs[3].f(PI/3, 83).p())
+      d.ellipse(0, 0, 80, 32, this.chain.segs[2].facing - PI / 4, 0, TWO_PI)
+      d.fill()
+      d.stroke()
+      d.restore()
+      d.save()
+      d.beginPath()
+      d.translate(...this.chain.segs[3].f(-PI/3, 83).p())
+      d.ellipse(0, 0, 80, 32, this.chain.segs[2].facing + PI / 4, 0, TWO_PI)
+      d.fill()
+      d.stroke()
+      d.restore()
+      // ventral fins
+      d.save()
+      d.beginPath()
+      d.translate(...this.chain.segs[7].f(PI/2, 38).p())
+      d.ellipse(0, 0, 48, 16, this.chain.segs[6].facing - PI / 4, 0, TWO_PI)
+      d.fill()
+      d.stroke()
+      d.restore()
+      d.save()
+      d.beginPath()
+      d.translate(...this.chain.segs[7].f(-PI/2, 38).p())
+      d.ellipse(0, 0, 48, 16, this.chain.segs[6].facing + PI / 4, 0, TWO_PI)
+      d.fill()
+      d.stroke()
+      d.restore()
+
+      // caudal fins
+
+
+      // body
+      d.fillStyle = this.constructor.bodyColor
+      let pts = []
+      for (let i = 0; i < 10; i++) pts.push(this.chain.segs[i].f1(this.constructor.drawSizes[i]))
+      pts.push(this.chain.segs[9].f(PI, 19))
+      for (let i = 9; i >= 0; i--) pts.push(this.chain.segs[i].f2(this.constructor.drawSizes[i]))
+      pts.push(this.chain.segs[0].f(-PI / 6, 68))
+      pts.push(this.chain.segs[0].f(0, 72))
+      pts.push(this.chain.segs[0].f(PI / 6, 68))
+      drawCurve(d, pts)
+      d.fill()
+      d.stroke()
+
+      // dorsal fin
+      d.fillStyle = this.constructor.finColor
+      d.beginPath()
+      d.moveTo(...this.chain.segs[4].pt.p())
+      d.bezierCurveTo(...this.chain.segs[5].pt.p(), ...this.chain.segs[6].pt.p(), ...this.chain.segs[7].pt.p())
+      d.lineTo(...this.chain.segs[4].pt.p())
+      d.fill()
+      d.stroke()
+
+      // eyes
+      d.fillStyle = 'rgba(255,255,255,.6)'
+      d.beginPath()
+      d.arc(...this.chain.segs[0].f(PI / 3, 45).p(), 10, 0, 2 * PI)
+      d.arc(...this.chain.segs[0].f(-PI / 3, 45).p(), 10, 0, 2 * PI)
+      d.fill()
+    }
+  }
+
+  function constrainDistance(pt, anchor, dist) {
+    return pt.sub(anchor).normalize().mul(dist).add(anchor)
+  }
+
+  function clamp(val, min, max) {
+    return val < min ? min : val > max ? max : val
+  }
+
+  // convert catmull-rom to bezier curves
+  // https://link.springer.com/article/10.1007/s42979-021-00770-x
+  function drawCurve(d, pts) {
+    // need to repeat 3 points since the first+last don't get rendered
+    pts = pts.concat(pts.slice(0, 3))
+    d.beginPath()
+    d.moveTo(pts[1].x, pts[1].y)
+    for(let i=0;i < pts.length-3; i++) {
+      let a = pts[i+1].add(pts[i+2].sub(pts[i]).div(6)),
+          b = pts[i+2].sub(pts[i+3].sub(pts[i+1]).div(6))
+      d.bezierCurveTo(a.x, a.y, b.x, b.y, pts[i+2].x, pts[i+2].y)
+    }
+    d.closePath()
+  }
+
+  function *range(a, b, step=1) { for(a;a!=b;a+=step) yield a }
+
+  let mouse = new V(600, 500)
+  let creature = new Fish(mouse)
+
+  addEventListener("mousemove", ev => {mouse = new V(ev.x, ev.y)})
+
+  function draw() {
+    requestAnimationFrame(draw)
+    c.width |=0
+
+    creature.update(mouse)
+
+    d.fillStyle = `#2C333C`
+    d.fillRect(0, 0, W, H)
+
+    creature.draw(d)
+    // snake.chain.draw(d)
+  }
+  draw()
+</script>

@@ -1,0 +1,23 @@
+<body style="margin:0">
+<canvas id=c></canvas>
+<script>
+  R=(r=0,g=0,b=0)=>`rgb(${r},${g},${b})`
+  sin=Math.sin
+  cos=Math.cos
+  c.width=1920
+  c.height=1080
+  x=c.getContext('2d')
+  t=0
+  x.scale(3,3)
+  function draw() {
+    A = B = X = Y = S = 100
+    for (i = 1e5; --i;) {
+      A += ++B | S
+      x.lineTo(X += cos(A), Y += sin(A))
+    }
+    x.stroke()
+    t+=1/60
+  }
+  draw()
+  // setInterval(draw, 1/60)
+</script>
