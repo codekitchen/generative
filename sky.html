@@ -73,12 +73,11 @@
       let y = m*m*9 + 450
       let s = d.fillStyle = d.createLinearGradient(0, y-100, 0, y+400)
       s.addColorStop(0, `hsl(${mc} 60 75)`)
-      // s.addColorStop(0, `hsl(70 60 75)`)
       s.addColorStop(1, `hsl(0 5 5)`)
       let p = m**2 + t
-      for (let s=3e3; s--;) {
+      for (let s=3e3; s>-100;s-=20) {
         const q = s + m*s + t*m**3 + p++
-        d.lineTo(s*m, y + 59*Math.cos(q/87)/m + 99*Math.cos(q/180)/m)
+        d.lineTo(s*m, y + 59*Math.cos(q/87)/m + 99*Math.cos(q/180)/m * 4*Math.cos(q/220)/m)
       }
       d.lineTo(0, H)
       d.lineTo(W, H)

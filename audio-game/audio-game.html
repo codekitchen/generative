@@ -1,0 +1,106 @@
+<body style="margin:0;overflow:hidden;position: relative;">
+<canvas id=c style="position:absolute;height:100%;"></canvas>
+<audio id=track2 src="track2.mp3"></audio>
+<div style="position: absolute;top:0;right:0;padding:1em;">
+  <button id="playbutton">Play</button>
+  <button id="stopbutton">Stop</button>
+</div>
+<script>
+  // just to get better typings
+  let c = document.querySelector('canvas')
+  const PI2 = Math.PI*2
+
+  let playing = false;
+  const audioContext = new AudioContext();
+  const audioElement = document.querySelector("audio");
+  const track = audioContext.createMediaElementSource(audioElement);
+  const filter = audioContext.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency = 250
+  track.connect(filter)
+  const analyser = audioContext.createAnalyser();
+  filter.connect(analyser)
+  track.connect(audioContext.destination);
+  let sampleRate = audioContext.sampleRate
+  let fftMax = sampleRate / 2
+  let maxBass = 200
+  analyser.fftSize = 2048
+  let nBuckets = Math.ceil(analyser.frequencyBinCount * (maxBass / fftMax))
+  console.log({ sampleRate, fftMax, maxBass, nBuckets })
+  const bufferLength = analyser.frequencyBinCount
+  const dataArray = new Float32Array(bufferLength)
+
+  function play() {
+    console.log('playing audio', audioContext.state, audioElement)
+    audioContext.resume()
+    audioElement.play()
+    playing = true
+  }
+  function stop() {
+    audioElement.pause()
+    playing = false
+  }
+  playbutton.onclick = play
+  stopbutton.onclick = stop
+
+  let tHist = []
+  const HIST_SIZE = 80
+  function thump(freqs) {
+    let instant = freqs.reduce((e, v) => e + v**2, 0)
+    if (instant == 1/0)
+      return false
+    let avg = tHist.reduce((e, v) => e + v, 0) / tHist.length
+    let variance = tHist.reduce((e, v) => e + (v-avg)**2, 0) / tHist.length
+    let c = (-0.0000015 * variance) + 1.5142857
+
+    if (tHist.length >= HIST_SIZE)
+      tHist.splice(0, 1)
+    tHist.push(instant)
+
+    // return instant / avg > 1.05
+    return instant > c * avg
+  }
+
+  let cRad = 50
+  function draw() {
+    c.width = W = document.body.clientWidth
+    c.height = H = document.body.clientHeight
+    var d = c.getContext('2d')
+    d.clearRect(0,0,W,H)
+    requestAnimationFrame(draw);
+    analyser.getFloatTimeDomainData(dataArray)
+    d.lineWidth = 2
+    let sliceW = W / bufferLength
+    let px = py = 0
+    for (let i=0,x=0; i<bufferLength; i++,x+=sliceW) {
+      let s = dataArray[i] * 200
+      let y = H*(3/4) - s
+      d.beginPath()
+      d.strokeStyle = 'black'
+      if (i < nBuckets)
+        d.strokeStyle = 'red'
+      d.moveTo(px, py)
+      d.lineTo(x, y)
+      // d.fillRect(x, y, sliceW, H)
+      d.stroke()
+      px = x; py = y
+    }
+
+    if (cRad > 50)
+      cRad-=4
+    cRad = Math.max(50, cRad)
+    d.strokeStyle = 'black'
+    d.beginPath()
+    d.arc(W/2, H/2, cRad, 0, PI2)
+    let pct = cRad
+    d.stroke()
+    if (playing && thump(dataArray)) {
+      cRad = 100
+      // d.beginPath()
+      // d.rect(50, 50, 100, 100)
+      // d.stroke()
+    }
+  }
+  draw();
+
+</script>

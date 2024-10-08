@@ -1,0 +1,7 @@
+{
+  "liveServer.settings.https": {
+    "enable": true,
+    "cert": "/Users/brianp/programming/web-play/generative/localhost+1.pem",
+    "key": "/Users/brianp/programming/web-play/generative/localhost+1-key.pem"
+  },
+}

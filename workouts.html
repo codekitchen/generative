@@ -1,0 +1,87 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" defer></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/2.1.0/gpx.min.js" defer></script> -->
+   <script src="./gpx.js" defer></script>
+</head>
+
+<body style="margin:0;overflow:hidden;position: relative;">
+  <div id="map" style="height:100%;"></div>
+
+  <script type="module">
+    // https://leafletjs.com
+    // https://github.com/mpetazzoni/leaflet-gpx
+    const map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; <a href="http://www.osm.org">OpenStreetMap</a>'
+    }).addTo(map);
+
+    window.gpxBlob = function(url, i) {
+      // URL to your GPX file or the GPX itself as a XML string.
+      // const url = 'route_2024-09-29_9.08am.gpx';
+      const options = {
+        async: true,
+        polyline_options: { color: 'purple' },
+        markers: {
+          startIcon: null,
+          endIcon: null,
+        },
+      };
+
+      return new Promise((resolve, reject) => {
+        const gpx = new L.GPX(url, options).on('loaded', (e) => {
+          resolve(e.target);
+          if (i == 0) map.fitBounds(e.target.getBounds());
+        }).addTo(map);
+      });
+    }
+  </script>
+
+  <script>
+    async function loadFiles() {
+      const dirHandle = await window.showDirectoryPicker();
+      stats = {
+        count: 0,
+        totalMiles: 0,
+        totalTime: 0,
+        elevGain: 0,
+      }
+      for await (const file of dirHandle.values()) {
+        const fileHandle = await file.getFile();
+        console.log(fileHandle.name, fileHandle.size);
+        const route = await window.gpxBlob(await fileHandle.text(), stats.count);
+        stats.count++;
+        stats.totalMiles += route.get_distance_imp();
+        stats.totalTime += route.get_moving_time();
+        stats.elevGain += route.get_elevation_gain_imp();
+        updateStats(stats);
+        // if (stats.count >= 10) break;
+      }
+      console.log(stats);
+      updateStats(stats);
+    }
+
+    function updateStats(stats) {
+      document.getElementById("totalRides").innerText = stats.count;
+      document.getElementById("totalMiles").innerText = stats.totalMiles.toFixed(2);
+      document.getElementById("totalTime").innerText = (stats.totalTime / 1000 / 60 / 60).toFixed(2);
+      document.getElementById("elevGain").innerText = stats.elevGain.toFixed(2);
+    }
+  </script>
+
+  <div style="position:absolute;right:25px;top:25px;border:1px solid #ccc;background: #eee;z-index: 1000;">
+    <input type="button" value="📂" onclick="loadFiles()" style="font-size: 2em;" />
+  </div>
+  <div style="position:absolute;right:25px;bottom:25px;border:1px solid #ccc;background: #eee;z-index: 1000;">
+    <ul style="padding: 0 2em;">
+      <li>Total Rides: <span id="totalRides"></span></li>
+      <li>Total Distance: <span id="totalMiles"></span> miles</li>
+      <li>Total Time: <span id="totalTime"></span> hours</li>
+      <li>Elevation Gain: <span id="elevGain"></span> feet</li>
+    </ul>
+  </div>
+</body>
+
+</html>
