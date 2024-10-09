@@ -1,0 +1,47 @@
+<html>
+
+<head>
+</head>
+
+<body style="margin:0;overflow:hidden;position: relative;">
+  <canvas id="c" style="position:absolute;width:100%;height:100%;"></canvas>
+  <script>
+    function R(max=1, min=0) { return min + Math.random() * (max-min) }
+    const HOLDINGS = ["💖","🪐","🎁","🌲","🐟","","❤️‍🩹","🪗","🍁","🪩"]
+    const sz = 64
+    const octoImg = new Image()
+    octoImg.src = 'octopus_1f419.png'
+
+    let x,y,dx,dy,held
+    function draw() {
+      const c = document.querySelector('canvas')
+      const d = c.getContext('2d')
+      const W = c.width = document.body.clientWidth
+      const H = c.height = document.body.clientHeight
+      d.fillStyle = 'black'
+      d.fillRect(0, 0, W, H)
+
+      if (x === undefined)
+        x = R(W), y = R(H), dx=R(4,1), dy=R(4,1), held = HOLDINGS[R(HOLDINGS.length)|0]
+
+      d.drawImage(octoImg, x, y, sz, sz)
+      d.font = `${sz}px system`
+      d.fillText(held, x, y+8)
+
+      x+=dx, y+=dy
+      if (x < 0)
+        x=0, dx=Math.abs(dx)
+      if (y < 0)
+        y=0, dy=Math.abs(dy)
+      if (x+sz >= W)
+        x=W-sz, dx=-Math.abs(dx)
+      if (y+sz >= H)
+        y=H-sz, dy=-Math.abs(dy)
+
+      requestAnimationFrame(draw)
+    }
+    draw()
+  </script>
+</body>
+
+</html>
