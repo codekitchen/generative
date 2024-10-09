@@ -24,9 +24,9 @@
       if (x === undefined)
         x = R(W), y = R(H), dx=R(4,1), dy=R(4,1), held = HOLDINGS[R(HOLDINGS.length)|0]
 
-      d.drawImage(octoImg, x, y, sz, sz)
       d.font = `${sz}px system`
       d.fillText(held, x, y+8)
+      d.drawImage(octoImg, x, y, sz, sz)
 
       x+=dx, y+=dy
       if (x < 0)
