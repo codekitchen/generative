@@ -10,6 +10,13 @@
   let c = document.querySelector('canvas')
   const PI2 = Math.PI*2
 
+  function rng(seed) {
+    let m = 2 ** 35 - 31, a = 185852, s = (seed ** 32) % m
+    return max => (max || 1) * (s = s * a % m) / m
+  }
+  R = (max = 1, min = 0) => min + (max - min) * rand()
+  rand = rng(Math.random())
+
   let playing = false;
   const audioContext = new AudioContext();
   const audioElement = document.querySelector("audio");
@@ -62,44 +69,74 @@
   }
 
   let cRad = 50
+  let bursts = []
   function draw() {
+    requestAnimationFrame(draw)
+
+    analyser.getFloatTimeDomainData(dataArray)
     c.width = W = document.body.clientWidth
     c.height = H = document.body.clientHeight
     var d = c.getContext('2d')
     d.clearRect(0,0,W,H)
-    requestAnimationFrame(draw);
-    analyser.getFloatTimeDomainData(dataArray)
+
+    // ground
+    d.fillStyle = 'hsl(0 20% 15%)'
+    d.fillRect(0,0,W,H)
+
+    // waveform ground
     d.lineWidth = 2
+    d.strokeStyle = 'black'
     let sliceW = W / bufferLength
     let px = py = 0
+    d.beginPath()
     for (let i=0,x=0; i<bufferLength; i++,x+=sliceW) {
-      let s = dataArray[i] * 200
+      let s = dataArray[i] * 100
       let y = H*(3/4) - s
-      d.beginPath()
-      d.strokeStyle = 'black'
-      if (i < nBuckets)
-        d.strokeStyle = 'red'
-      d.moveTo(px, py)
-      d.lineTo(x, y)
-      // d.fillRect(x, y, sliceW, H)
-      d.stroke()
+      if (i == 0)
+        d.moveTo(x, y)
+      else
+        d.lineTo(x, y)
       px = x; py = y
     }
+    d.stroke()
+    d.lineTo(W,0)
+    d.lineTo(0,0)
+    d.save()
+    d.clip()
+    d.fillStyle = 'hsl(220 20% 25%)'
+    d.fillRect(0,0,W,H)
 
+    // star bursts
+    for (let b of bursts) {
+      d.beginPath()
+      d.arc(b.x, b.y, b.r, 0, PI2)
+      d.fillStyle = `rgba(255,255,255,${b.a})`
+      d.fill()
+      b.a -= 0.05
+      b.r += R(0.7)
+    }
+    bursts = bursts.filter(b => b.a > 0)
+
+    // moon
     if (cRad > 50)
       cRad-=4
     cRad = Math.max(50, cRad)
     d.strokeStyle = 'black'
     d.beginPath()
-    d.arc(W/2, H/2, cRad, 0, PI2)
+    d.arc(W*3/4, H*1/5, cRad, 0, PI2)
     let pct = cRad
     d.stroke()
+    d.fillStyle = 'gray'
+    d.fill()
     if (playing && thump(dataArray)) {
       cRad = 100
-      // d.beginPath()
-      // d.rect(50, 50, 100, 100)
-      // d.stroke()
+      bursts.push({
+        x: R(W), y: R(H), r: R(10, 3), a: 1.0,
+      })
     }
+
+    // remove clip
+    d.restore()
   }
   draw();
 
