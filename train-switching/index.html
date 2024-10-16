@@ -1,0 +1,245 @@
+<body style="margin:0;overflow:hidden;position: relative;">
+<canvas id=c style="position:absolute;height:100%;"></canvas>
+<script>
+  // just to get better typings
+  let c = document.querySelector('canvas')
+  const PI = Math.PI
+  const PI2 = Math.PI*2
+  c.width = W = document.body.clientWidth
+  c.height = H = document.body.clientHeight
+
+  class hsl {
+    constructor(h, s) {
+      this.h = h
+      this.s = s
+    }
+    toString(l=50) {
+      return `hsl(${this.h} ${this.s}% ${l}%)`
+    }
+  }
+  const colors = [
+    new hsl(10, 60),
+    new hsl(210, 40),
+    new hsl(120, 30),
+    new hsl(50, 80),
+    new hsl(300, 40),
+    new hsl(265, 20),
+  ]
+
+  class Line {
+    constructor(color) {
+      this.stops = []
+      this.trains = []
+      this.color = color || colors[R(colors.length)|0]
+    }
+    addStop(v) {
+      this.stops.push({pos: v})
+    }
+    draw(d) {
+      d.lineWidth = 8
+      d.strokeStyle = this.color
+      d.lineJoin = 'round'
+      d.lineCap = 'round'
+      d.beginPath()
+      let i = 0
+      for (let {pos} of this.stops) {
+        if (i++ == 0)
+          d.moveTo(pos.x, pos.y)
+        else
+          d.lineTo(pos.x, pos.y)
+      }
+      d.stroke()
+      for (let {pos} of this.stops) {
+        d.beginPath()
+        d.fillStyle = this.color
+        d.arc(pos.x, pos.y, 10, 0, PI2)
+        d.fill()
+      }
+
+      for (let train of this.trains) {
+        if (!train.dir) {
+          train.dir = R() > 0.5 ? 1 : -1
+        }
+        train.left ||= 0
+        train.sleep ||= 0
+        if (train.sleep <= 0) {
+          if (train.target !== undefined)
+            train.stop = train.target
+
+          train.target = train.stop+train.dir
+          if (train.target < 0 || train.target >= this.stops.length) {
+            train.dir = -train.dir
+            train.target = train.stop+train.dir
+          }
+          train.dist = this.stops[train.target].pos.dist(this.stops[train.stop].pos)
+          train.left = train.dist
+          train.sleep = 30
+          train.angle = this.stops[train.target].pos.angle(this.stops[train.stop].pos)
+        } else if (train.left <= 0) {
+          train.sleep--
+        }
+
+        let pos = this.stops[train.stop].pos
+        let pos2 = this.stops[train.target].pos
+        pos = pos.easeInOutCubic(pos2, (train.dist-train.left)/train.dist)
+
+        d.fillStyle = this.color
+        d.save()
+        d.translate(pos.x, pos.y)
+        d.rotate(train.angle)
+        d.fillRect(0, 0, 40, 20)
+        d.restore()
+      }
+    }
+    update() {
+      for (let train of this.trains) {
+        train.left -= train.speed
+        if (train.left < 0)
+          train.left = 0
+      }
+    }
+  }
+
+  function easeInOutCubic(x) {
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  // angle normalized between -PI and PI
+  class Angle {
+    constructor(radians=0) { this.radians = Angle.normalize(radians) }
+    static normalize(r) {
+      while (r < -PI) r += TWO_PI
+      while (r > PI) r -= TWO_PI
+      return r
+    }
+    valueOf() { return this.radians }
+    degrees() { return this.radians * 180 / PI }
+    add(a2) { return new Angle(this.radians + a2) }
+    sub(a2) { return new Angle(this.radians - a2) }
+    clamp(min,max) { return new Angle(clamp(this.radians, min, max)) }
+  }
+
+  class V {
+    constructor(x=0,y){
+      this.x=x; this.y=y===undefined?x:y
+    }
+    static fromAngle(angle, r = 1) {
+      return new V(+r * Math.cos(angle), +r * Math.sin(angle))
+    }
+
+    add(v2){ return new V(v2.x+this.x, v2.y+this.y) }
+    sub(v2){ return new V(this.x-v2.x, this.y-v2.y) }
+    mul(n){ return new V(this.x*n, this.y*n) }
+    div(n){ return new V(this.x/n, this.y/n) }
+    dot(v2){ return this.x*v2.x + this.y*v2.y }
+    len(){ return Math.sqrt(this.x**2 + this.y**2) }
+    dist(v2) { return this.sub(v2).len() }
+    setMag(n) {
+      if (n === 0 || this.len() === 0) return new V()
+      let s=n/this.len()
+      return new V(this.x*s, this.y*s)
+    }
+    normalize(){
+      const l=this.len()
+      if(l===0) return this
+      return new V(this.x/l, this.y/l)
+    }
+    heading() { return new Angle(Math.atan2(this.y, this.x)) }
+    angle(v2) { return new Angle(Math.atan2(v2.y-this.y, v2.x-this.x)) }
+    lerp(v2,pct) {
+      return new V(this.x+(v2.x-this.x)*pct, this.y+(v2.y-this.y)*pct)
+    }
+    easeInOutCubic(v2,pct) {
+      pct = easeInOutCubic(pct)
+      return new V(this.x+(v2.x-this.x)*pct, this.y+(v2.y-this.y)*pct)
+    }
+    p() { return [this.x,this.y] }
+  }
+  function v(x,y) { return new V(x,y) }
+
+
+  function rng(seed) {
+    let m = 2 ** 35 - 31, a = 185852, s = (seed ** 32) % m
+    return max => (max || 1) * (s = s * a % m) / m
+  }
+  R = (max = 1, min = 0) => min + (max - min) * rand()
+  Ri = (max = 1, min = 0) => Math.floor(R(max, min))
+  rand = rng(Math.random())
+  for (i = 100; --i;)rand() // my rand is bad and I should feel bad
+  function* range(a, b, step = 1) { for (a; a != b; a += step) yield a }
+
+  let lines = []
+
+  function findCloseStop(pt) {
+    for (let l of lines) {
+      for (let s of l.stops) {
+        if (s.pos.dist(pt) < 150) {
+          return [l,s]
+        }
+      }
+    }
+    return [null,null]
+  }
+  function maybeAttachToNear(pt) {
+    if (R() > 0.3) {
+      let [nearL, nearS] = findCloseStop(pt)
+      if (nearL)
+        pt = nearS.pos
+      // let connLine = lines[Ri(lines.length)]
+      // first = connLine.stops[Ri(connLine.stops.length)].pos
+    }
+    return pt
+  }
+
+  for (let i of range(0, Ri(12, 3))) {
+    l = new Line(colors[i%colors.length])
+    let first = v(R(W), R(H))
+    first = maybeAttachToNear(first)
+    l.addStop(first)
+
+    for (let s of range(0, Ri(6, 1))) {
+      let prev = l.stops[l.stops.length-1]
+      let len = Ri(300, 25)
+      len = R() > 0.5 ? len : -len
+      let pt
+      switch (Ri(3)) {
+        case 0:
+          pt = prev.pos.add(v(len, 0))
+          break
+          case 1:
+          pt = prev.pos.add(v(0, len))
+          break
+          case 2:
+          pt = prev.pos.add(v(len, len))
+          break
+      }
+      pt = maybeAttachToNear(pt)
+      l.addStop(pt)
+    }
+
+    for (let i of range(0, Ri(4))) {
+      let stop = Ri(l.stops.length)
+      l.trains.push({stop, speed:4})
+    }
+
+    lines.push(l)
+  }
+
+  function draw() {
+    requestAnimationFrame(draw)
+
+    c.width = W = document.body.clientWidth
+    c.height = H = document.body.clientHeight
+    var d = c.getContext('2d')
+    d.fillStyle = '#ddd'
+    d.fillRect(0,0,W,H)
+
+    for (let l of lines)
+      l.draw(d)
+    for (let l of lines)
+      l.update()
+
+  }
+  draw();
+
+</script>
