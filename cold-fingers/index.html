@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cold Fingers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="fetch" href="https://octothorp.es/?uri=http://codekitchen.net/weird/cold-fingers/">
+  <link rel="octo:octothorpes" href="weirdweboctober">
+  <link rel="octo:octothorpes" href="CSS">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      cursor: url('hand2.png') 24 4, pointer;
+      font-size: 2.5em;
+      font-family: "Silkscreen", sans-serif;
+      background-color: black;
+      height: 100%;
+    }
+    #scene {
+      background-color: #df7126;
+      position: absolute;
+      padding: 1em;
+      width: 100%;
+      height: 450px;
+    }
+    .cold {
+      cursor: url('hand1.png') 24 4, pointer;
+    }
+    .hot {
+      cursor: url('hand3.png') 24 4, pointer;
+    }
+    @keyframes shake-cold {
+      0% { transform: translate(0, 1px) rotate(0.5deg); }
+      10% { transform: translate(1px, 1px)rotate(0.5deg); }
+      20% { transform: translate(1px, 0); }
+      30% { transform: translate(1px, 0)rotate(0.5deg); }
+      40% { transform: translate(1px, 1px); }
+      50% { transform: translate(0, 1px)rotate(0.5deg); }
+      60% { transform: translate(0, 0)rotate(0.5deg); }
+      70% { transform: translate(1px, 1px); }
+      80% { transform: translate(0, 0); }
+      90% { transform: translate(1px, 0)rotate(0.5deg); }
+      100% { transform: translate(0, 1px); }
+    }
+    .cold-words {
+      color: blue;
+      animation-name: shake-cold;
+      animation-duration: 250ms;
+      animation-iteration-count: infinite;
+      display: inline-block;
+      transform-origin: center center;
+      animation-play-state: paused;
+      animation-timing-function: ease-in-out;
+    }
+    .cold-words:hover {
+      animation-play-state: running;
+    }
+  </style>
+</head>
+<body>
+  <div id="scene">
+    <p style="text-align: center;">It sure is <span class="cold cold-words">cold</span> outside.</p>
+    <img src="windows.png" alt="Windows" class="cold" style="position: absolute; top: 250px; right: 200px;">
+    <img src="mug.png" alt="Mug" class="hot" style="position: absolute; top: 416px; left: 150px;">
+    <img src="laptop.png" alt="Mug" class="hot" style="position: absolute; top: 393px; left: 290px;">
+    <img src="table.png" alt="Table" style="position: absolute; top: 470px; left: 45px;">
+    </div>
+  </div>
+</body>
+</html>
