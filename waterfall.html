@@ -1,0 +1,78 @@
+<body style="margin:0;overflow:hidden;position: relative;">
+<canvas style="position:absolute;height:100%;"></canvas>
+<script>
+  BLANK=-500
+  const c = document.querySelector('canvas')
+  c.width = W = document.body.clientWidth
+  c.height = H = document.body.clientHeight
+  randx = () => Math.random() * (W/5) + 70
+  randy = () => -(Math.random() * H)
+
+  const ndrops = 100_000
+  const nprops = 4 // x, y, dx, dy
+  droplets = new Float32Array(ndrops * nprops)
+  for (let i = 0; i < ndrops; i++) {
+    let idx = i * nprops
+    droplets[idx+0] = randx()
+    droplets[idx+1] = randy()*2
+    droplets[idx + 2] = Math.random() - .5
+    droplets[idx + 3] = Math.random() * 2 - 1
+  }
+
+  let buf
+
+  function draw() {
+    c.width = W = document.body.clientWidth
+    c.height = H = document.body.clientHeight
+    var d = c.getContext('2d')
+    if (!buf || buf.width != W || buf.height != H) {
+      buf = d.createImageData(W, H)
+    }
+    const rock1 = {x: 110, y: H-350}
+    const rock2 = {x: 224, y: H-500, x2: 350, y2: H-450}
+    buf.data.fill(0)
+    d.clearRect(0,0,W,H)
+    for (let i = 0; i < ndrops; i++) {
+      let idx = i * nprops
+      const x = droplets[idx + 0]
+      const y = droplets[idx + 1]
+      const dx = droplets[idx + 2]
+      const dy = droplets[idx + 3]
+      droplets[idx + 0] += dx
+      droplets[idx + 1] += dy
+      if (dy < 8) droplets[idx+3] += 0.1
+      if (y > rock1.y && x < rock1.x) {
+        droplets[idx+2] += 0.4
+      } else if (y > rock2.y && y < rock2.y2 && x > rock2.x) {
+        droplets[idx+2] -= 0.3
+      } else if (y > H || x == BLANK) {
+        // reset this droplet
+        droplets[idx+0] = randx()
+        droplets[idx+1] = randy()
+        droplets[idx+2] = Math.random() - .5
+        droplets[idx+3] = Math.random() * 2 - 1
+      }
+      const pix = ((y|0)*W + (x|0)) * 4
+      const l = 220 - (y/H)*120
+      buf.data[pix+0] = l
+      buf.data[pix+1] = l
+      buf.data[pix+2] = 255
+      buf.data[pix+3] = 255
+    }
+    d.putImageData(buf, 0, 0)
+    d.fillStyle = '#0000FF99'
+    d.ellipse(W/4, H-5, W/2, 45, 0, 0, Math.PI*2)
+    d.fill()
+    d.beginPath()
+    d.fillStyle = 'brown'
+    d.rect(0, rock1.y, rock1.x, 150)
+    d.fill()
+    d.beginPath()
+    d.fillStyle = 'brown'
+    d.rect(rock2.x, rock2.y, rock2.x2-rock2.x, rock2.y2-rock2.y)
+    d.fill()
+
+    requestAnimationFrame(draw)
+  }
+  requestAnimationFrame(draw)
+</script>
